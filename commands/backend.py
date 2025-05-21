@@ -8,6 +8,7 @@ import sqlite3
 import aiohttp
 from io import BytesIO
 
+
 class AnonPost(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
