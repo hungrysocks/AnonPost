@@ -9,8 +9,11 @@ class BotSettings(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    async def bot_owner_check(self, interaction: discord.Interaction) -> bool:
+        return await self.bot.is_owner(interaction.user)
+
     @app_commands.command(name='setname', description='Change the bot\'s name')
-    @app_commands.checks.has_permissions(administrator=True)
+    @app_commands.check(bot_owner_check)
     @app_commands.describe(name='The new name for the bot')
     async def set_name(self, interaction: discord.Interaction, name: str):
         try:
@@ -24,7 +27,7 @@ class BotSettings(commands.Cog):
             await interaction.response.send_message(f'An error occurred: {e}', ephemeral=True)
 
     @app_commands.command(name='setavatar', description='Change the bot\'s avatar')
-    @app_commands.checks.has_permissions(administrator=True)
+    @app_commands.check(bot_owner_check)
     @app_commands.describe(avatar_url='The URL of the new avatar image')
     async def set_avatar(self, interaction: discord.Interaction, avatar_url: str):
         try:
@@ -50,12 +53,12 @@ class BotSettings(commands.Cog):
             await interaction.response.send_message(f'An error occurred: {e}', ephemeral=True)
 
     @app_commands.command(name='say', description='Make the bot send a message to a specified channel')
-    @app_commands.checks.has_permissions(administrator=True)
+    @app_commands.check(bot_owner_check)
     @app_commands.describe(channel='The channel to send the message to', message='The message to send')
     async def say(self, interaction: discord.Interaction, channel: discord.TextChannel, message: str):
         try:
             await channel.send(message)
-            await interaction.response.send_message(f'Message sent to {channel.mention}!', ephemeral=True)
+            await interaction.response.send_message(f'Message sent to {channel.mention}', ephemeral=True)
         except discord.Forbidden:
             await interaction.response.send_message('I don\'t have permission to send messages in that channel.', ephemeral=True)
         except discord.HTTPException as e:
@@ -64,7 +67,7 @@ class BotSettings(commands.Cog):
             await interaction.response.send_message(f'An error occurred: {e}', ephemeral=True)
 
     @app_commands.command(name='setbio', description='Change the bot\'s bio')
-    @app_commands.checks.has_permissions(administrator=True)
+    @app_commands.check(bot_owner_check)
     @app_commands.describe(bio='The new bio for the bot')
     async def set_bio(self, interaction: discord.Interaction, bio: str):
         try:
@@ -76,7 +79,7 @@ class BotSettings(commands.Cog):
             await interaction.response.send_message(f'An error occurred: {e}', ephemeral=True)
 
     @app_commands.command(name='setstatus', description='Change the bot\'s status')
-    @app_commands.checks.has_permissions(administrator=True)
+    @app_commands.check(bot_owner_check)
     @app_commands.describe(status='The new status for the bot')
     async def set_status(self, interaction: discord.Interaction, status: str):
         try:
