@@ -8,11 +8,11 @@ import sqlite3
 import aiohttp
 from io import BytesIO
 
-
 class AnonPost(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.post_cooldowns = {}
+        self.post_counter = 0
         self.db = sqlite3.connect("anon_channels.db")
         self.cursor = self.db.cursor()
         self._initialize_db()
@@ -36,11 +36,27 @@ class AnonPost(commands.Cog):
             channel_id INTEGER
         )
         """)
+        self.cursor.execute("""
+        CREATE TABLE IF NOT EXISTS post_counter (
+            id INTEGER PRIMARY KEY,
+            count INTEGER
+        )
+        """)
+        self.cursor.execute("INSERT OR IGNORE INTO post_counter (id, count) VALUES (1, 0)")
         self.db.commit()
         self.banned_users = {}
         self.cursor.execute("SELECT user_id, ban_end FROM banned_users")
         for user_id, ban_end in self.cursor.fetchall():
             self.banned_users[user_id] = ban_end
+        self.cursor.execute("SELECT count FROM post_counter WHERE id = 1")
+        result = self.cursor.fetchone()
+        self.post_counter = result[0] if result else 0
+
+    def _increment_post_counter(self):
+        self.post_counter += 1
+        self.cursor.execute("UPDATE post_counter SET count = ? WHERE id = 1", (self.post_counter,))
+        self.db.commit()
+        return self.post_counter
 
     def _add_anon_channel(self, channel_id):
         self.cursor.execute("INSERT OR IGNORE INTO anon_channels (channel_id) VALUES (?)", (channel_id,))
@@ -168,10 +184,9 @@ class AnonPost(commands.Cog):
                 return
 
 class PostModal(ui.Modal, title='Create a Post'):
-    name_input = ui.TextInput(label='Name (optional)', style=discord.TextStyle.short, placeholder='Leave blank for anonymous', required=False)
     title_input = ui.TextInput(label='Title (optional)', style=discord.TextStyle.short, placeholder='Enter post title', required=False)
     body_input = ui.TextInput(label='Body', style=discord.TextStyle.long, placeholder='Enter post body', required=True)
-    image_input = ui.TextInput(label='Image URL (optional)', style=discord.TextStyle.short, placeholder='Enter image URL', required=True)
+    image_input = ui.TextInput(label='Image URL (optional)', style=discord.TextStyle.short, placeholder='Enter image URL', required=False)
 
     def __init__(self, cog):
         super().__init__()
@@ -182,15 +197,18 @@ class PostModal(ui.Modal, title='Create a Post'):
             await interaction.response.send_message('❌ This channel is not set up for anonymous posts.', ephemeral=True)
             return
 
+        await interaction.response.send_message('✅ Post is being created...', ephemeral=True)
+
         try:
             title = self.title_input.value or ''
             body = self.body_input.value
             image_url = self.image_input.value
-            name = self.name_input.value or 'Anonymous'
+            post_number = self.cog._increment_post_counter()
+            post_name = f'Post #{post_number}'
             post_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
 
             embed = discord.Embed(title=title, description=body, color=0x000001)
-            embed.set_author(name=name, icon_url=interaction.client.user.avatar.url)
+            embed.set_author(name=post_name, icon_url=interaction.client.user.avatar.url)
             embed.set_footer(text=f'Post ID: {post_id}')
 
             files = []
@@ -204,7 +222,7 @@ class PostModal(ui.Modal, title='Create a Post'):
                             files.append(file)
                             embed.set_image(url='attachment://image.png')
                         else:
-                            await interaction.response.send_message('❌ Failed to download image.', ephemeral=True)
+                            await interaction.followup.send('❌ Failed to download image.', ephemeral=True)
                             return
 
             view = ui.View()
@@ -215,12 +233,11 @@ class PostModal(ui.Modal, title='Create a Post'):
             self.cog._save_post_mapping(post_id, message.id, interaction.channel_id)
             self.cog.post_cooldowns[interaction.user.id] = asyncio.get_event_loop().time() + 10
 
-            await interaction.response.send_message('✅ Post created successfully.', ephemeral=True)
+            await interaction.followup.send('✅ Post created successfully.', ephemeral=True)
         except Exception as e:
-            await interaction.response.send_message(f'❌ Error creating post: {str(e)}', ephemeral=True)
+            await interaction.followup.send(f'❌ Error creating post: {str(e)}', ephemeral=True)
 
 class ReplyModal(ui.Modal, title='Reply to Post'):
-    name_input = ui.TextInput(label='Your Name (optional)', style=discord.TextStyle.short, placeholder='Leave blank for anonymous', required=False)
     body_input = ui.TextInput(label='Reply Body', style=discord.TextStyle.long, placeholder='Enter your reply', required=True)
     image_input = ui.TextInput(label='Image URL (optional)', style=discord.TextStyle.short, placeholder='Enter image URL', required=False)
 
@@ -231,13 +248,16 @@ class ReplyModal(ui.Modal, title='Reply to Post'):
         self.post_id = post_id
 
     async def on_submit(self, interaction: discord.Interaction):
+        await interaction.response.send_message('✅ Reply is being sent...', ephemeral=True)
+
         try:
             body = self.body_input.value
             image_url = self.image_input.value
-            name = self.name_input.value or 'Anonymous'
+            post_number = self.cog._increment_post_counter()
+            post_name = f'Post #{post_number}'
             embed = discord.Embed(description=body, color=0x26C6DA)
-            embed.set_author(name=name, icon_url=interaction.client.user.avatar.url)
-            embed.set_footer(text=f'Replied by {name}')
+            embed.set_author(name=post_name, icon_url=interaction.client.user.avatar.url)
+            embed.set_footer(text=f'Replied by {post_name}')
 
             files = []
             if image_url:
@@ -250,7 +270,7 @@ class ReplyModal(ui.Modal, title='Reply to Post'):
                             files.append(file)
                             embed.set_image(url='attachment://image.png')
                         else:
-                            await interaction.response.send_message('❌ Failed to download image.', ephemeral=True)
+                            await interaction.followup.send('❌ Failed to download image.', ephemeral=True)
                             return
 
             thread = self.message.thread
@@ -259,9 +279,9 @@ class ReplyModal(ui.Modal, title='Reply to Post'):
 
             await thread.send(embed=embed, files=files)
             self.cog.post_cooldowns[interaction.user.id] = asyncio.get_event_loop().time() + 10
-            await interaction.response.send_message('✅ Reply sent successfully.', ephemeral=True)
+            await interaction.followup.send('✅ Reply sent successfully.', ephemeral=True)
         except Exception as e:
-            await interaction.response.send_message(f'❌ Error sending reply: {str(e)}', ephemeral=True)
+            await interaction.followup.send(f'❌ Error sending reply: {str(e)}', ephemeral=True)
 
 async def setup(bot):
     await bot.add_cog(AnonPost(bot))
