@@ -210,6 +210,7 @@ class PostModal(ui.Modal, title='Create a Post'):
             embed = discord.Embed(title=title, description=body, color=0x000001)
             embed.set_author(name=post_name, icon_url=interaction.client.user.avatar.url)
             embed.set_footer(text=f'Post ID: {post_id}')
+            embed.timestamp = discord.utils.utcnow()  # Add timestamp
 
             files = []
             if image_url:
@@ -258,6 +259,7 @@ class ReplyModal(ui.Modal, title='Reply to Post'):
             embed = discord.Embed(description=body, color=0x26C6DA)
             embed.set_author(name=post_name, icon_url=interaction.client.user.avatar.url)
             embed.set_footer(text=f'Replied by {post_name}')
+            embed.timestamp = discord.utils.utcnow()  # Add timestamp
 
             files = []
             if image_url:
