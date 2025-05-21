@@ -3,6 +3,7 @@ from discord.ext import commands
 from discord import app_commands
 import asyncio
 import aiohttp
+from io import BytesIO
 
 class BotSettings(commands.Cog):
     def __init__(self, bot):
@@ -17,12 +18,14 @@ class BotSettings(commands.Cog):
             await interaction.response.send_message(f'Bot name has been changed to {name}!', ephemeral=True)
         except discord.Forbidden:
             await interaction.response.send_message('I don\'t have permission to change my username.', ephemeral=True)
+        except discord.HTTPException as e:
+            await interaction.response.send_message(f'Failed to change name: {e}', ephemeral=True)
         except Exception as e:
             await interaction.response.send_message(f'An error occurred: {e}', ephemeral=True)
 
-    @app_commands.command(name='setav', description='Change the bot\'s avatar')
+    @app_commands.command(name='setavatar', description='Change the bot\'s avatar')
     @app_commands.checks.has_permissions(administrator=True)
-    @app_commands.describe(avatar_url='The new avatar URL for the bot')
+    @app_commands.describe(avatar_url='The URL of the new avatar image')
     async def set_avatar(self, interaction: discord.Interaction, avatar_url: str):
         try:
             async with aiohttp.ClientSession() as session:
@@ -30,11 +33,33 @@ class BotSettings(commands.Cog):
                     if response.status != 200:
                         await interaction.response.send_message('Failed to fetch the avatar image. Please check the URL.', ephemeral=True)
                         return
+                    content_type = response.headers.get('content-type', '')
+                    if not content_type.startswith('image/'):
+                        await interaction.response.send_message('URL does not point to a valid image.', ephemeral=True)
+                        return
                     avatar_bytes = await response.read()
-            await self.bot.user.edit(avatar=avatar_bytes)
+                    avatar_buffer = BytesIO(avatar_bytes)
+                    avatar_buffer.seek(0)
+            await self.bot.user.edit(avatar=avatar_buffer.read())
             await interaction.response.send_message('Bot avatar has been changed!', ephemeral=True)
         except discord.Forbidden:
             await interaction.response.send_message('I don\'t have permission to change my avatar.', ephemeral=True)
+        except discord.HTTPException as e:
+            await interaction.response.send_message(f'Failed to change avatar: {e}', ephemeral=True)
+        except Exception as e:
+            await interaction.response.send_message(f'An error occurred: {e}', ephemeral=True)
+
+    @app_commands.command(name='say', description='Make the bot send a message to a specified channel')
+    @app_commands.checks.has_permissions(administrator=True)
+    @app_commands.describe(channel='The channel to send the message to', message='The message to send')
+    async def say(self, interaction: discord.Interaction, channel: discord.TextChannel, message: str):
+        try:
+            await channel.send(message)
+            await interaction.response.send_message(f'Message sent to {channel.mention}!', ephemeral=True)
+        except discord.Forbidden:
+            await interaction.response.send_message('I don\'t have permission to send messages in that channel.', ephemeral=True)
+        except discord.HTTPException as e:
+            await interaction.response.send_message(f'Failed to send message: {e}', ephemeral=True)
         except Exception as e:
             await interaction.response.send_message(f'An error occurred: {e}', ephemeral=True)
 
@@ -45,6 +70,8 @@ class BotSettings(commands.Cog):
         try:
             await self.bot.change_presence(activity=discord.Game(name=bio))
             await interaction.response.send_message(f'Bot bio has been updated to: "{bio}"', ephemeral=True)
+        except discord.HTTPException as e:
+            await interaction.response.send_message(f'Failed to update bio: {e}', ephemeral=True)
         except Exception as e:
             await interaction.response.send_message(f'An error occurred: {e}', ephemeral=True)
 
@@ -55,6 +82,8 @@ class BotSettings(commands.Cog):
         try:
             await self.bot.change_presence(activity=discord.Game(name=status))
             await interaction.response.send_message(f'Bot status has been set to: {status}', ephemeral=True)
+        except discord.HTTPException as e:
+            await interaction.response.send_message(f'Failed to set status: {e}', ephemeral=True)
         except Exception as e:
             await interaction.response.send_message(f'An error occurred: {e}', ephemeral=True)
 
