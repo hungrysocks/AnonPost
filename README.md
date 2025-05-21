@@ -2,12 +2,12 @@
 Anonymous Image Board bot for Discord, inspired by 4chan/Futaba channel
 
 
-Made for and by discord.gg/qatar - viist if u need help
+Made for and by discord.gg/qatar - visit if u need help
 
 ---
 
 # Guide
-*You likely cannot afford a hosting service. In the rare case you can, scroll down for the selfhost guide.*
+*You likely cannot afford a hosting service. If you can, refer to the selfhost guide.*
 - Add the bot to your server with this link: https://discord.com/oauth2/authorize?client_id=1374149127725650083&permissions=8&integration_type=0&scope=bot
 - Type `/setupanonch #channel` to setup anonymous posts. You will see a popup if setup correctly.
 - You can disable posts at any time with `/removeanonch #channel`
