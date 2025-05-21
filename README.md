@@ -15,9 +15,9 @@ Made for and by discord.gg/qatar - viist if u need help
 
 # Selfhost Guide
 **Modals do not accept file uploads, blame Discord's API.**
-AnonPost was written to be lightweight. It should be easy to edit. This bot uses **Discord.py and Aiohttp**
-A button + modal combo is used on the frontend, while the backend uses bytesio to obfuscate links and handle ID's.
-A database is created to parse channels and bans.
+- AnonPost was written to be lightweight. It should be easy to edit. This bot uses **Discord.py and Aiohttp**
+- A button + modal combo is used on the frontend, while the backend uses bytesio to obfuscate links and handle ID's.
+- A database is created to parse channels and bans.
 
 If you are selfhosting, play around with the modals.
 I recommend keeping URL's required if you want something remiscent of 4chan.
